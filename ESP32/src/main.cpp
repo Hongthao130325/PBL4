@@ -1,4 +1,7 @@
 #include <Arduino.h>
+#include "actuators.h"
+#include "sensors.h"
+
 #include <Servo.h>
 
 // Servo pan-tilt
