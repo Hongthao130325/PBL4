@@ -1,18 +1,21 @@
 #ifndef MQTT_CONFIG_H
 #define MQTT_CONFIG_H
-#include <Arduino.h> 
 
-// WiFi
-#define WIFI_SSID       "TenWiFiCuaBan"
-#define WIFI_PASSWORD   "MatKhauWiFi"
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include "config.h"
 
-// MQTT Broker
-#define MQTT_SERVER     "test.mosquitto.org"
-#define MQTT_PORT       1883
+// Cấu hình WiFi & MQTT
+#define WIFI_SSID "your_wifi_name"
+#define WIFI_PASSWORD "your_password"
+#define MQTT_SERVER "broker.hivemq.com"
+#define MQTT_PORT 1883
 
-// Topics
-#define TOPIC_SENSOR    "pccc/sensor"
-#define TOPIC_ALERT     "pccc/alert"
-#define TOPIC_CONTROL   "pccc/control"
+extern WiFiClient espClient;
+extern PubSubClient client;
+
+void setup_wifi();
+void reconnect_mqtt();
+void mqtt_publish(const char* topic, const String& payload);
 
 #endif

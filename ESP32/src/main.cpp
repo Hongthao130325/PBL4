@@ -1,74 +1,62 @@
 #include <Arduino.h>
-#include "actuators.h"
+#include "config.h"
 #include "sensors.h"
+#include "actuators.h"
+#include "mqtt_config.h"
 
-#include <Servo.h>
+// --- Tạo đối tượng ---
+MQ2Sensor gasSensor(MQ2_PIN);
+SmokeSensor smokeSensor(SMOKE_PIN);
+Relay relay(RELAY_PIN);
+Pump pump(RELAY_PIN);
+ServoDoor door1(SERVO1_PIN);
+ServoDoor door2(SERVO2_PIN);
 
-// Servo pan-tilt
-Servo servoPan;
-Servo servoTilt;
-const int panPin = 12;
-const int tiltPin = 13;
-
-// Relay / MOSFET cho bơm/van
-const int pumpPin = 14;
-
-// E-Stop
-const int eStopPin = 27;
-
-// Còi + đèn
-const int alarmPin = 26;
+unsigned long lastCheck = 0;
 
 void setup() {
   Serial.begin(115200);
-
-  // Setup servo
-  servoPan.attach(panPin);
-  servoTilt.attach(tiltPin);
-
-  // Setup pump/relay
-  pinMode(pumpPin, OUTPUT);
-  digitalWrite(pumpPin, LOW);
-
-  // Setup E-Stop
-  pinMode(eStopPin, INPUT_PULLUP);
-
-  // Setup alarm
-  pinMode(alarmPin, OUTPUT);
-  digitalWrite(alarmPin, LOW);
+  gasSensor.begin();
+  smokeSensor.begin();
+  relay.begin();
+  pump.begin();
+  door1.begin();
+  door2.begin();
+  
+  setup_wifi();
+  client.setServer(MQTT_SERVER, MQTT_PORT);
+  Serial.println("🚀 ESP32 IoT Fire/Gas Safety System started!");
 }
 
 void loop() {
-  // 1. Kiểm tra E-Stop
-  if(digitalRead(eStopPin) == LOW) {
-    emergencyStop();
-    return; // dừng tất cả
+  if (!client.connected()) reconnect_mqtt();
+  client.loop();
+
+  if (millis() - lastCheck > 2000) {
+    lastCheck = millis();
+
+    int gasVal = gasSensor.readValue();
+    int smokeVal = smokeSensor.readValue();
+
+    Serial.printf("Gas: %d | Smoke: %d\n", gasVal, smokeVal);
+
+    mqtt_publish(MQTT_TOPIC_GAS, String(gasVal));
+    mqtt_publish(MQTT_TOPIC_SMOKE, String(smokeVal));
+
+    bool danger = gasSensor.isDetected(GAS_THRESHOLD) || smokeSensor.isDetected(SMOKE_THRESHOLD);
+    if (danger) {
+      Serial.println("🔥 Danger detected! Activating system...");
+      relay.on();
+      pump.start();
+      door1.open();
+      door2.open();
+      mqtt_publish(MQTT_TOPIC_STATUS, "ALERT");
+    } else {
+      relay.off();
+      pump.stop();
+      door1.close();
+      door2.close();
+      mqtt_publish(MQTT_TOPIC_STATUS, "SAFE");
+    }
   }
-
-  // 2. Điều khiển servo pan-tilt (ví dụ demo)
-  servoPan.write(90);
-  servoTilt.write(45);
-  delay(1000);
-
-  // 3. Kích hoạt bơm/van
-  digitalWrite(pumpPin, HIGH);
-  delay(500);
-  digitalWrite(pumpPin, LOW);
-  delay(500);
-
-  // 4. Còi + đèn báo động
-  digitalWrite(alarmPin, HIGH);
-  delay(200);
-  digitalWrite(alarmPin, LOW);
-  delay(200);
-}
-
-void emergencyStop() {
-  // Tắt hết thiết bị
-  digitalWrite(pumpPin, LOW);
-  digitalWrite(alarmPin, LOW);
-  servoPan.write(0);
-  servoTilt.write(0);
-  Serial.println("E-Stop activated! All systems OFF.");
-  while(1) delay(1000); // dừng vô hạn
 }

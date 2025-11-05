@@ -1,16 +1,26 @@
 #ifndef SENSORS_H
 #define SENSORS_H
-#include <Arduino.h> 
 
-#define MQ2_PIN 34   // Cảm biến khói/gas gắn vào chân analog
+#include <Arduino.h>
 
-int readGasSensor() {
-  int gasValue = analogRead(MQ2_PIN);
-  return gasValue;
-}
+class MQ2Sensor {
+private:
+  int pin;
+public:
+  MQ2Sensor(int p);
+  void begin();
+  int readValue();
+  bool isDetected(int threshold);
+};
 
-bool isFireDetected(int threshold = 1800) {
-  return analogRead(MQ2_PIN) > threshold;
-}
+class SmokeSensor {
+private:
+  int pin;
+public:
+  SmokeSensor(int p);
+  void begin();
+  int readValue();
+  bool isDetected(int threshold);
+};
 
 #endif
